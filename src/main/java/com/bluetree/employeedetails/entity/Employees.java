@@ -5,6 +5,7 @@ import jakarta.validation.constraints.Email;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotNull;
 import jakarta.validation.constraints.Past;
+import jakarta.validation.constraints.Pattern;
 import jakarta.validation.constraints.Positive;
 import jakarta.validation.constraints.Size;
 
@@ -24,7 +25,7 @@ public class Employees {
     private Long id;
 
     @Column(name = "name")
-    @NotBlank(message = "Name is required")
+    @Pattern(regexp = "^[A-Za-z\\s]+$", message = "Name must only contain letters and spaces")
     @Size(min = 2, max = 100, message = "Name must be between 2 and 100 characters")
     private String name;
 

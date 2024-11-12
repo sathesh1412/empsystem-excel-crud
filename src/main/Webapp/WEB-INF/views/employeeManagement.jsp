@@ -18,49 +18,55 @@
 
     <!-- Display success or error message -->
     <c:if test="${not empty message}">
-        <div class="alert alert-info">${message}</div>
+        <div class="alert alert-success">${message}</div>
     </c:if>
-    
-  <%--   <c:if test="${not empty errors}">
-    <ul>
-        <c:forEach var="error" items="${errors}">
-            <li>${error}</li>
-        </c:forEach>
-    </ul>
-</c:if>  --%>
 
-<c:if test="${not empty successMessage}">
-    <div class="alert alert-success">
-        ${successMessage}
+<!-- Display success and failure counts, only for specific actions -->
+<c:if test="${not empty successCount || not empty failureCount}">
+    <div class="alert alert-secondary">
+        <p class="alert alert-success" style="background-color: #28a745; color: white;">Success Count: ${successCount}</p>
+        
+        <c:if test="${not empty successfulRows}">
+            <h4 style="color: #28a745;">Successfully Processed Rows:</h4> <!-- Green text for success -->
+            <ul>
+                <c:forEach items="${successfulRows}" var="row">
+                    <li style="color: #28a745;">Row ${row}</li>  <!-- Green color for successful rows -->
+                </c:forEach>
+            </ul>
+        </c:if>
+        
+        <p class="alert alert-danger" style="background-color: #dc3545; color: white;">Failure Count: ${failureCount}</p>
+        
+        <c:if test="${not empty errorMessages}">
+            <h4 style="color: #dc3545;">Errors:</h4> <!-- Red text for error heading -->
+            <ul>
+                <c:forEach items="${errorMessages}" var="error">
+                    <li style="color: #dc3545;">${error}</li> <!-- Red color for errors -->
+                </c:forEach>
+            </ul>
+        </c:if>
     </div>
 </c:if>
 
-<%-- Display error message --%>
- <c:if test="${not empty error}">
-    <div class="alert alert-danger">
-        <strong>Error!</strong> ${error}<br>
-    </div>
-</c:if>  
 
-<%-- Display success message --%>
- <c:if test="${not empty message}">
-    <div class="alert alert-success">
-        <strong>Success!</strong> ${message}
-    </div>
-</c:if> 
+    <!-- Display success message -->
+    <c:if test="${not empty successMessage}">
+        <div class="alert alert-success">
+            ${successMessage}
+        </div>
+    </c:if>
 
-    <!-- If there are error messages, display them -->
-<%-- Display the error messages if present --%>
-<c:if test="${not empty error}">
-    <div class="alert alert-danger">
-        <ul>
-            <c:forEach var="err" items="${fn:split(error, ';')}">
-                <li>${err}</li>
-            </c:forEach>
-        </ul>
-    </div>
-</c:if>
-
+    <!-- Display error messages if any -->
+    <c:if test="${not empty error}">
+        <div class="alert alert-danger">
+            <strong>Error!</strong>
+            <ul>
+                <c:forEach var="err" items="${fn:split(error, ';')}">
+                    <li>${err}</li>
+                </c:forEach>
+            </ul>
+        </div>
+    </c:if>
 
     <!-- Form for Adding/Editing Employee -->
     <form:form action="/saveEmployee" method="post" modelAttribute="employee" >
@@ -161,15 +167,15 @@
 
 </body>
 <script>
-        function validateEmail() {
-            var email = document.getElementById("email").value;
-            var regex = /^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$/;
-            if (regex.test(email)) {
-                return true;
-            } else {
-                alert("Invalid Email Address. Please enter a valid one.");
-                return false;
-            }
+    function validateEmail() {
+        var email = document.getElementById("email").value;
+        var regex = /^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$/;
+        if (regex.test(email)) {
+            return true;
+        } else {
+            alert("Invalid Email Address. Please enter a valid one.");
+            return false;
         }
-    </script>
+    }
+</script>
 </html>

@@ -8,6 +8,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.web.multipart.MultipartFile;
 
 import com.bluetree.employeedetails.Exception.EmployeeValidationException;
+import com.bluetree.employeedetails.entity.EmployeeUploadResult;
 import com.bluetree.employeedetails.entity.Employees;
 import com.bluetree.employeedetails.repository.EmployeeRepository;
 
@@ -65,10 +66,13 @@ public class EmployeeService {
     }
 
     // Upload Employees from Excel file
-    public List<String> saveEmployeesFromExcel(MultipartFile file) throws IOException {
+    public EmployeeUploadResult saveEmployeesFromExcel(MultipartFile file) throws IOException {
         Workbook workbook = new XSSFWorkbook(file.getInputStream());
         Sheet sheet = workbook.getSheetAt(0);
         List<String> allErrors = new ArrayList<>(); // Collect errors for the entire file
+        List<Integer> successfulRows = new ArrayList<>(); // List to store successful row numbers
+        int successCount = 0;
+        int failureCount = 0;
 
         for (Row row : sheet) {
             if (row.getRowNum() == 0) continue; // Skip header row
@@ -80,6 +84,8 @@ public class EmployeeService {
             String name = getStringCellValue(row.getCell(0));
             if (name.isEmpty()) {
                 errors.add("Name cannot be empty at row " + (row.getRowNum() + 1));
+            } else if (!name.matches("[A-Za-z\\s]+")) { // Regular expression to check for letters only
+                errors.add("Invalid name format at row " + (row.getRowNum() + 1) + ". Name must contain only letters and spaces.");
             } else {
                 employee.setName(name);
             }
@@ -107,7 +113,7 @@ public class EmployeeService {
             } else {
                 employee.setSalary(salary);
             }
-            
+
             // Check for non-numeric input (Handle string input for numeric fields)
             if (!isNumeric(getStringCellValue(row.getCell(3)))) {
                 errors.add("Salary should be a valid number at row " + (row.getRowNum() + 1));
@@ -115,25 +121,32 @@ public class EmployeeService {
 
             // Read Status (Boolean) - Handle Boolean and Numeric cells
             boolean status = getBooleanCellValue(row.getCell(4));
+            if (!status && row.getCell(4) != null && row.getCell(4).getCellType() != CellType.BLANK) {
+                // If the status is invalid (not true or false), add an error
+                errors.add("Status should be 'active' or 'inactive' at row " + (row.getRowNum() + 1));
+            }
             employee.setStatus(status);
 
             // If there are errors for this row, add them to the overall errors list
             if (!errors.isEmpty()) {
                 allErrors.add(String.join("; ", errors)); // Join all errors for the current row
+                failureCount++; // Increment failure count
             } else {
                 // If no errors, calculate the age and save the employee to the repository
                 employee.calculateAge();
                 employeeRepository.save(employee);
+                successCount++; // Increment success count
+                successfulRows.add(row.getRowNum() + 1);  // Add the row number to the list (1-based index)
             }
         }
 
         workbook.close();
-     // If there are any errors in the file, throw an exception with all errors
-        if (!allErrors.isEmpty()) {
-            throw new EmployeeValidationException(String.join("; ", allErrors)); // Join all errors across all rows
-        }
-        return allErrors;
+
+        // Return result with counts, errors, and successful row numbers
+        return new EmployeeUploadResult(successCount, failureCount, allErrors, successfulRows);
     }
+
+
         
      // Helper function to check if a string is numeric
         private boolean isNumeric(String str) {
@@ -147,13 +160,19 @@ public class EmployeeService {
         }
 
 
-    private String getStringCellValue(Cell cell) {
-        if (cell == null) return "";
-        if (cell.getCellType() == CellType.STRING) {
-            return cell.getStringCellValue();
-        } else if (cell.getCellType() == CellType.NUMERIC) {
-            return String.valueOf(cell.getNumericCellValue());
-        }
+        private String getStringCellValue(Cell cell) {
+            if (cell == null) {
+                return "";
+            }
+
+            if (cell.getCellType() == CellType.STRING) {
+                return cell.getStringCellValue().trim(); // Trimming to handle any extra whitespace
+            } else if (cell.getCellType() == CellType.NUMERIC) {
+                // If a numeric value is entered where a string is expected, you can return an empty string or log an error
+                return String.valueOf(cell.getNumericCellValue()); // Optionally return "" or throw an error/collect an error message
+            } else if (cell.getCellType() == CellType.BLANK) {
+                return "";
+            }
         return "";
     }
 
@@ -190,7 +209,11 @@ public class EmployeeService {
     }
 
     private boolean getBooleanCellValue(Cell cell) {
-        if (cell == null) return false;
+        if (cell == null || cell.getCellType() == CellType.BLANK) {
+            // Return false to signal missing value and handle it as an error later
+            return false;
+        }
+
         if (cell.getCellType() == CellType.BOOLEAN) {
             return cell.getBooleanCellValue();
         } else if (cell.getCellType() == CellType.NUMERIC) {
@@ -198,10 +221,18 @@ public class EmployeeService {
             return cell.getNumericCellValue() == 1;
         } else if (cell.getCellType() == CellType.STRING) {
             String cellValue = cell.getStringCellValue().trim().toLowerCase();
-            return cellValue.equals("active") || cellValue.equals("1") || cellValue.equals("true");
+            // If it is active or inactive (or their valid equivalents), return true or false
+            if (cellValue.equals("active") || cellValue.equals("1") || cellValue.equals("true")) {
+                return true;
+            } else if (cellValue.equals("inactive") || cellValue.equals("0") || cellValue.equals("false")) {
+                return false;
+            }
         }
+
+        // If the value is invalid, return false and handle it as an error later
         return false;
     }
+
 
 
  // Export Employees to Excel file
@@ -221,7 +252,7 @@ public class EmployeeService {
         headerRow.createCell(3).setCellValue("Salary");
         headerRow.createCell(4).setCellValue("Status");  // "Status" will have a dropdown
         
-     // Create a DataValidationHelper to set data validation for the "Status" column
+        // Create a DataValidationHelper to set data validation for the "Status" column
         DataValidationHelper validationHelper = sheet.getDataValidationHelper();
         
         // Define the data validation constraint for the "Status" column (Dropdown values)

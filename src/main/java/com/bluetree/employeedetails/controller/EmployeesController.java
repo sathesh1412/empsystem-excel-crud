@@ -28,6 +28,7 @@ import org.springframework.web.servlet.mvc.support.RedirectAttributes;
 import org.springframework.web.multipart.MultipartFile;
 
 import com.bluetree.employeedetails.Exception.EmployeeValidationException;
+import com.bluetree.employeedetails.entity.EmployeeUploadResult;
 import com.bluetree.employeedetails.entity.Employees;
 import com.bluetree.employeedetails.service.EmployeeService;
 
@@ -81,6 +82,10 @@ public class EmployeesController {
 
         // Add success message to the model
         model.addAttribute("successMessage", "Employee saved successfully!");
+        
+     // Retrieve the list of all employees to display in the table
+        List<Employees> employeeList = employeeService.getAllEmployees();
+        model.addAttribute("AllEmployees", employeeList);
 
         // Redirect to the employee form or another page, if needed
         return "employeeManagement"; // or another page, like redirect:/employees
@@ -101,9 +106,10 @@ public class EmployeesController {
 	}
     
     @PostMapping("/updatedEmployee/{id}")
-	public String updatedEmployee(Employees employee,@PathVariable Long id) {
+	public String updatedEmployee(Employees employee,@PathVariable Long id,RedirectAttributes redirectAttributes) {
 		employee.setId(id);
 		employeeService.updatedEmployee(employee);
+		redirectAttributes.addFlashAttribute("message","Employee Updated Successfully");
 		return "redirect:/";
 		
 	}
@@ -120,16 +126,25 @@ public class EmployeesController {
     @PostMapping("/uploadEmployees")
     public String uploadEmployees(@RequestParam("file") MultipartFile file, RedirectAttributes redirectAttributes) {
         try {
-            employeeService.saveEmployeesFromExcel(file);
-            redirectAttributes.addFlashAttribute("message", "Employees uploaded successfully!");
+            // Call service to process the file and get the result
+            EmployeeUploadResult result = employeeService.saveEmployeesFromExcel(file);
+
+            // Pass the result to the frontend via redirect attributes
+            redirectAttributes.addFlashAttribute("successCount", result.getSuccessCount());
+            redirectAttributes.addFlashAttribute("failureCount", result.getFailureCount());
+            redirectAttributes.addFlashAttribute("errorMessages", result.getErrorMessages());
+            redirectAttributes.addFlashAttribute("successfulRows", result.getSuccessfulRows());  // Pass the successful rows list
+
         } catch (EmployeeValidationException e) {
-            // This will capture all validation errors
             redirectAttributes.addFlashAttribute("error", e.getMessage());
         } catch (IOException e) {
             redirectAttributes.addFlashAttribute("error", "Error uploading employees: " + e.getMessage());
         }
+
+        // Redirect to the homepage after processing
         return "redirect:/";
     }
+
 
 
 
